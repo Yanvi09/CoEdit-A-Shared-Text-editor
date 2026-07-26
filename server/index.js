@@ -26,11 +26,6 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     console.log(`Socket ${socket.id} joined room ${roomId}`);
     console.log(`Room ${roomId} now has ${io.sockets.adapter.rooms.get(roomId)?.size || 0} clients`);
-    
-    // Send existing participants to the newly joined client
-    const participants = roomParticipants.get(roomId) || [];
-    const participantNames = participants.map(p => p.userName);
-    socket.emit('room-participants', participantNames);
   });
 
   // Relay any operation to other clients in the room
@@ -75,6 +70,10 @@ io.on('connection', (socket) => {
     if (!participants.find(p => p.socketId === socket.id)) {
       participants.push({ socketId: socket.id, userName: user });
     }
+    
+    // Send the complete participant list to the newly joined client
+    const participantNames = participants.map(p => p.userName);
+    socket.emit('room-participants', participantNames);
     
     // Only broadcast to other clients, not the sender
     socket.to(roomId).emit('user-joined', user);

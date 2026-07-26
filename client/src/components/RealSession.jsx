@@ -75,7 +75,6 @@ export default function RealSession() {
     });
 
     socketRef.current.on('room-participants', (participants) => {
-      console.log('Received room participants:', participants);
       // Find the other participant (not the current user)
       const otherParticipant = participants.find(p => p !== userName);
       if (otherParticipant) {
