@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import CollabEditor from './CollabEditor';
 
 export default function RealSession() {
-  const [view, setView] = useState('join'); // 'join', 'create', 'waiting', 'editing'
+  const [view, setView] = useState('join'); // 'join', 'create', 'waiting', 'editing', 'disconnected'
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState('');
   const [isHost, setIsHost] = useState(false);
@@ -89,8 +89,7 @@ export default function RealSession() {
         setView('waiting');
       } else {
         // Guest sees disconnected state
-        alert('The host has disconnected. Returning to home...');
-        window.location.href = '/';
+        setView('disconnected');
       }
     });
   };
@@ -243,6 +242,33 @@ export default function RealSession() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'disconnected') {
+    return (
+      <div className="min-h-screen bg-bg-white flex flex-col items-center justify-center p-8">
+        <button
+          onClick={handleBack}
+          className="mb-6 text-text-muted hover:text-text-primary transition-colors"
+        >
+          ← Back
+        </button>
+        <div className="max-w-md w-full bg-bg-surface rounded-2xl shadow-sm border border-border-subtle p-8 text-center">
+          <h2 className="text-2xl font-bold text-text-primary mb-4">
+            The other person has disconnected
+          </h2>
+          <p className="text-text-muted mb-6">
+            The host has left the room. You can return to the home screen to create or join a different room.
+          </p>
+          <button
+            onClick={handleBack}
+            className="w-full py-3 bg-primary-blue hover:bg-primary-blue-hover text-white rounded-xl font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            Return to Home
+          </button>
         </div>
       </div>
     );
