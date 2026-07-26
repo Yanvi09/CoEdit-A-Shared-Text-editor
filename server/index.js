@@ -14,6 +14,9 @@ const io = new Server(server, {
   },
 });
 
+// Track room participants: roomId -> Set of socket objects with userName
+const roomParticipants = new Map();
+
 // Pure relay server - no conflict resolution logic
 // Simply broadcasts any operation to other clients in the same room
 io.on('connection', (socket) => {
@@ -23,6 +26,11 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     console.log(`Socket ${socket.id} joined room ${roomId}`);
     console.log(`Room ${roomId} now has ${io.sockets.adapter.rooms.get(roomId)?.size || 0} clients`);
+    
+    // Send existing participants to the newly joined client
+    const participants = roomParticipants.get(roomId) || [];
+    const participantNames = participants.map(p => p.userName);
+    socket.emit('room-participants', participantNames);
   });
 
   // Relay any operation to other clients in the room
@@ -58,6 +66,17 @@ io.on('connection', (socket) => {
   socket.on('user-joined', (data) => {
     const { roomId, user } = data;
     console.log(`User ${user} joined room ${roomId}`);
+    
+    // Add this user to the participants map
+    if (!roomParticipants.has(roomId)) {
+      roomParticipants.set(roomId, []);
+    }
+    const participants = roomParticipants.get(roomId);
+    if (!participants.find(p => p.socketId === socket.id)) {
+      participants.push({ socketId: socket.id, userName: user });
+    }
+    
+    // Only broadcast to other clients, not the sender
     socket.to(roomId).emit('user-joined', user);
   });
 
@@ -67,6 +86,18 @@ io.on('connection', (socket) => {
       if (roomId !== socket.id) {
         console.log(`Socket ${socket.id} leaving room ${roomId}`);
         socket.to(roomId).emit('user-left', socket.id);
+        
+        // Remove from participants map
+        const participants = roomParticipants.get(roomId);
+        if (participants) {
+          const index = participants.findIndex(p => p.socketId === socket.id);
+          if (index !== -1) {
+            participants.splice(index, 1);
+          }
+          if (participants.length === 0) {
+            roomParticipants.delete(roomId);
+          }
+        }
       }
     });
   });

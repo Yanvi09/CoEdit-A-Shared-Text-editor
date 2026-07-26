@@ -62,10 +62,8 @@ export default function RealSession() {
     socketRef.current.on('connect', () => {
       console.log(`${userName} connected to room ${roomId}`);
       socketRef.current.emit('join-room', roomId);
-      // Only emit user-joined if this is a guest joining an existing room
-      if (!isHost) {
-        socketRef.current.emit('user-joined', { roomId, user: userName });
-      }
+      // Emit user-joined to register this user in the server's participants map
+      socketRef.current.emit('user-joined', { roomId, user: userName });
     });
 
     socketRef.current.on('user-joined', (user) => {
@@ -73,6 +71,15 @@ export default function RealSession() {
       setOtherUser(user);
       if (isHost) {
         setView('editing');
+      }
+    });
+
+    socketRef.current.on('room-participants', (participants) => {
+      console.log('Received room participants:', participants);
+      // Find the other participant (not the current user)
+      const otherParticipant = participants.find(p => p !== userName);
+      if (otherParticipant) {
+        setOtherUser(otherParticipant);
       }
     });
 
