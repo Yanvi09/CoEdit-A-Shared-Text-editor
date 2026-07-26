@@ -9,6 +9,7 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
   const [isOffline, setIsOffline] = useState(false);
   const [operationQueue, setOperationQueue] = useState([]);
   const [mergeHighlight, setMergeHighlight] = useState(false);
+  const [showInternals, setShowInternals] = useState(false);
   const socketRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -35,6 +36,9 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
     },
     getText: () => {
       return text;
+    },
+    getDoc: () => {
+      return doc;
     }
   }));
 
@@ -249,6 +253,52 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
       <div className="p-2 border-t border-border-subtle text-xs text-text-muted">
         Cursor: {cursorPosition} | {isOffline ? `${operationQueue.length} queued ops` : 'Synced'}
       </div>
+      
+      {showInternals && (
+        <div className="border-t border-border-subtle bg-bg-white">
+          <div className="p-3 border-b border-border-subtle">
+            <button
+              onClick={() => setShowInternals(false)}
+              className="text-sm font-medium text-text-primary hover:text-primary-blue transition-colors"
+            >
+              ▼ Under the hood
+            </button>
+          </div>
+          <div className="p-3 max-h-48 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-text-muted">
+                  <th className="pb-2 font-medium">ID</th>
+                  <th className="pb-2 font-medium">Position</th>
+                  <th className="pb-2 font-medium">Char</th>
+                  <th className="pb-2 font-medium">Deleted</th>
+                  <th className="pb-2 font-medium">Author</th>
+                </tr>
+              </thead>
+              <tbody>
+                {doc.map((char, index) => (
+                  <tr key={index} className="border-t border-border-subtle font-mono">
+                    <td className="py-1 text-xs text-text-muted">{char.id.slice(-8)}</td>
+                    <td className="py-1 text-xs">{char.position.join('.')}</td>
+                    <td className="py-1">{char.char}</td>
+                    <td className="py-1">{char.deleted ? '✓' : '-'}</td>
+                    <td className="py-1">{char.author}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      
+      {!showInternals && (
+        <button
+          onClick={() => setShowInternals(true)}
+          className="w-full p-2 border-t border-border-subtle text-xs text-text-muted hover:text-text-primary hover:bg-bg-surface-hover transition-colors"
+        >
+          ▶ Under the hood
+        </button>
+      )}
     </div>
   );
 });
