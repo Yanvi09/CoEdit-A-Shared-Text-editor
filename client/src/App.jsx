@@ -68,10 +68,10 @@ function App() {
   }
 
   const handleRemoteCursor = (cursorData) => {
-    if (cursorData && cursorData.userName) {
+    if (cursorData && cursorData.author) {
       setRemoteCursors(prev => ({
         ...prev,
-        [cursorData.userName]: cursorData
+        [cursorData.author]: cursorData
       }))
     }
   }
