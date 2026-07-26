@@ -38,17 +38,19 @@ function App() {
           anviRef.current.simultaneousInsert('A')
           ekakshRef.current.simultaneousInsert('B')
           
-          // Check results after a short delay
+          // Wait for operations to round-trip through server
           setTimeout(() => {
             const anviText = anviRef.current.getText()
             const ekakshText = ekakshRef.current.getText()
+            
+            console.log('Anvi text:', anviText, 'Ekaksh text:', ekakshText);
             
             if (anviText === ekakshText) {
               setTestResult({ success: true, message: 'both edits merged — texts match' })
             } else {
               setTestResult({ success: false, message: 'texts diverged — CRDT bug detected' })
             }
-          }, 500)
+          }, 800) // Increased delay to allow round-trip
         }
       }, 100)
     }

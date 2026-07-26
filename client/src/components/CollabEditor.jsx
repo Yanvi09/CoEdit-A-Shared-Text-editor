@@ -45,6 +45,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     simultaneousInsert: (char) => {
       const operation = {
         type: 'insert',
+        id: generateId(),
         afterPosition: [0],
         beforePosition: [1],
         char: char,
@@ -55,8 +56,10 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
         applyOperation(newDoc, operation);
         return newDoc;
       });
-      // Don't emit to socket during simulation test
-      // This is purely for local testing
+      // Emit to socket for actual sync during test
+      if (!isOffline && socketRef.current) {
+        socketRef.current.emit('operation', { roomId, operation });
+      }
     },
     getText: () => {
       return text;
