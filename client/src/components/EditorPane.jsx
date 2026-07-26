@@ -72,6 +72,10 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, r
         if (operation.type === 'remove') {
           const foundEntry = newDoc.find(c => c.id === operation.id);
           console.log('[DELETE] applying to doc, found matching entry:', foundEntry);
+          if (!foundEntry) {
+            console.log('[DELETE] WARNING: Character ID not found in local document:', operation.id);
+            console.log('[DELETE] Current document IDs:', newDoc.map(c => c.id));
+          }
         }
         applyOperation(newDoc, operation);
         return newDoc;
