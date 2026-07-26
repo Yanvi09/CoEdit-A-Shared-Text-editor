@@ -41,9 +41,8 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, r
         applyOperation(newDoc, operation);
         return newDoc;
       });
-      if (!isOffline && socketRef.current) {
-        socketRef.current.emit('operation', { roomId, operation });
-      }
+      // Don't emit to socket during simulation test
+      // This is purely for local testing
     },
     getText: () => {
       return text;
