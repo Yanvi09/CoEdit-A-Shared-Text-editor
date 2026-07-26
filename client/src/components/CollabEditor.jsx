@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 're
 import { io } from 'socket.io-client';
 import { createDocument, applyOperation, render, generateId } from '../crdt';
 
-const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor, isDemoMode = false }, ref) => {
+const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor, isDemoMode = false, isHost = false }, ref) => {
   const [doc, setDoc] = useState(createDocument());
   const [text, setText] = useState('');
   const [isOffline, setIsOffline] = useState(false);
@@ -11,6 +11,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
   const [showInternals, setShowInternals] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const [typingUserName, setTypingUserName] = useState('');
   const typingTimeoutRef = useRef(null);
   const simulationTimerRef = useRef(null);
   const socketRef = useRef(null);
@@ -26,7 +27,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
 
   // Handle typing indicator for other user
   useEffect(() => {
-    if (onRemoteCursorRef.current) {
+    if (isDemoMode && onRemoteCursorRef.current) {
       const allCursors = onRemoteCursorRef.current;
       if (allCursors && typeof allCursors === 'object') {
         const otherUserName = userName === 'Anvi' ? 'Ekaksh' : 'Anvi';
@@ -34,7 +35,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
         setOtherUserTyping(otherCursor?.isTyping || false);
       }
     }
-  }, [onRemoteCursor, userName]);
+  }, [onRemoteCursor, userName, isDemoMode]);
 
   useImperativeHandle(ref, () => ({
     resetDocument: () => {
@@ -96,6 +97,11 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     socketRef.current.on('connect', () => {
       console.log(`${userName} connected to room ${roomId}`);
       socketRef.current.emit('join-room', roomId);
+      
+      // In real session mode, emit user-joined so others know about this user
+      if (!isDemoMode) {
+        socketRef.current.emit('user-joined', { roomId, user: userName });
+      }
     });
 
     // Listen for operations from other clients
@@ -131,8 +137,19 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
       // Update local state for typing indicator
       if (data.author !== userName) {
         setOtherUserTyping(data.isTyping);
+        setTypingUserName(data.author);
       }
     });
+
+    // Listen for user leave events in real session mode
+    if (!isDemoMode) {
+      socketRef.current.on('user-left', (socketId) => {
+        console.log('User left the room');
+        // Clear the typing indicator when user leaves
+        setOtherUserTyping(false);
+        setTypingUserName('');
+      });
+    }
 
     return () => {
       if (typingTimeoutRef.current) {
@@ -145,13 +162,30 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
         socketRef.current.disconnect();
       }
     };
-  }, [userName, roomId]);
+  }, [userName, roomId, isDemoMode]);
 
   // Update rendered text when document changes
   useEffect(() => {
     const renderedText = render(doc);
     setText(renderedText);
   }, [doc]);
+
+  // Get color for a user based on join order
+  const getUserColor = (author) => {
+    if (isDemoMode) {
+      // Demo mode uses hardcoded colors for Anvi and Ekaksh
+      return author === 'Anvi' ? '#4285F4' : '#F9A825';
+    }
+    
+    // Real session mode: host (first joiner) gets blue, guest gets gold
+    if (author === userName) {
+      // Current user: host gets blue, guest gets gold
+      return isHost ? '#4285F4' : '#F9A825';
+    } else {
+      // Other user: if current is host, other is guest (gold), else other is host (blue)
+      return isHost ? '#F9A825' : '#4285F4';
+    }
+  };
 
   // Render text with author colors
   const renderColoredText = () => {
@@ -169,7 +203,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     });
     
     return activeChars.map((char) => {
-      const color = char.author === 'Anvi' ? '#4285F4' : '#F9A825';
+      const color = getUserColor(char.author);
       return <span key={char.id} style={{ color }}>{char.char}</span>;
     });
   };
@@ -312,7 +346,11 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
   };
 
   const getOtherUserName = () => {
-    return userName === 'Anvi' ? 'Ekaksh' : 'Anvi';
+    if (isDemoMode) {
+      return userName === 'Anvi' ? 'Ekaksh' : 'Anvi';
+    }
+    // In real session mode, use the actual typing user name
+    return typingUserName || 'Someone';
   };
 
   return (

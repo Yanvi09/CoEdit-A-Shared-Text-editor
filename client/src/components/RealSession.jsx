@@ -210,6 +210,8 @@ export default function RealSession() {
             <CollabEditor 
               userName={name}
               roomId={roomId}
+              isDemoMode={false}
+              isHost={isHost}
             />
           </div>
           
