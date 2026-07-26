@@ -117,6 +117,10 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
       if (onRemoteCursorRef.current) {
         onRemoteCursorRef.current(data);
       }
+      // Update local state for typing indicator
+      if (data.author !== userName) {
+        setOtherUserTyping(data.isTyping);
+      }
     });
 
     return () => {
@@ -302,7 +306,14 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
       mergeHighlight ? 'ring-2 ring-success-green ring-offset-2' : ''
     }`}>
       <div className="flex items-center justify-between p-4 border-b border-border-subtle bg-bg-white">
-        <h3 className="font-medium text-text-primary">{userName}</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="font-medium text-text-primary">{userName}</h3>
+          {otherUserTyping && (
+            <span className="text-xs text-primary-blue font-medium">
+              {getOtherUserName()} is typing...
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           <button
             onClick={toggleOffline}
@@ -324,6 +335,9 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
           )}
         </div>
       </div>
+      <div style={{background: 'red', color: 'white', padding: 8, fontSize: 12}}>
+        DEBUG typing state: otherUserTyping={String(otherUserTyping)}, onRemoteCursor={JSON.stringify(onRemoteCursor)}
+      </div>
       <div className="relative flex-1">
         <textarea
           ref={textareaRef}
@@ -339,11 +353,6 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
         >
           {renderColoredText()}
         </div>
-        {otherUserTyping && (
-          <div className="absolute top-2 right-4 px-3 py-1 bg-primary-blue text-white text-xs rounded-full">
-            {getOtherUserName()} is typing...
-          </div>
-        )}
       </div>
       <div className="p-2 border-t border-border-subtle text-xs text-text-muted">
         {isOffline ? `${operationQueue.length} queued ops` : 'Synced'}
