@@ -28,6 +28,10 @@ export default function RealSession() {
   }, []);
 
   const handleBack = () => {
+    // Cleanly disconnect from socket if connected
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+    }
     window.location.href = '/';
   };
 
@@ -195,7 +199,7 @@ export default function RealSession() {
               <p className="text-sm text-text-muted">Room: {roomId}</p>
             </div>
             <button
-              onClick={() => window.location.href = '/'}
+              onClick={handleBack}
               className="px-4 py-2 bg-bg-surface hover:bg-bg-surface-hover text-text-primary border border-border-subtle rounded-xl font-medium transition-all duration-200"
             >
               Leave Room

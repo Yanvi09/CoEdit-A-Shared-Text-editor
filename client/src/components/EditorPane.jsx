@@ -12,6 +12,14 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
   const [showInternals, setShowInternals] = useState(false);
   const socketRef = useRef(null);
   const textareaRef = useRef(null);
+  const onCursorPositionRef = useRef(onCursorPosition);
+  const onOperationRef = useRef(onOperation);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onCursorPositionRef.current = onCursorPosition;
+    onOperationRef.current = onOperation;
+  }, [onCursorPosition, onOperation]);
 
   useImperativeHandle(ref, () => ({
     resetDocument: () => {
@@ -47,26 +55,28 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
     socketRef.current = io('http://localhost:3001');
 
     socketRef.current.on('connect', () => {
-      console.log(`${name} connected`);
+      console.log(`${name} connected to room ${roomId}`);
       socketRef.current.emit('join-room', roomId);
     });
 
     // Listen for operations from other clients
     socketRef.current.on('operation', (operation) => {
+      console.log(`${name} received operation:`, operation);
       setDoc(prevDoc => {
         const newDoc = [...prevDoc];
         applyOperation(newDoc, operation);
         return newDoc;
       });
-      if (onOperation) {
-        onOperation(operation);
+      if (onOperationRef.current) {
+        onOperationRef.current(operation);
       }
     });
 
     // Listen for cursor position updates
     socketRef.current.on('cursor-position', (position) => {
-      if (onCursorPosition) {
-        onCursorPosition(position);
+      console.log(`${name} received cursor position:`, position);
+      if (onCursorPositionRef.current) {
+        onCursorPositionRef.current(position);
       }
     });
 
@@ -75,7 +85,7 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
         socketRef.current.disconnect();
       }
     };
-  }, [name, roomId, onCursorPosition, onOperation]);
+  }, [name, roomId]); // Remove onCursorPosition and onOperation from dependencies
 
   // Update rendered text when document changes
   useEffect(() => {
@@ -123,8 +133,8 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
         return newDoc;
       });
       
-      if (onOperation) {
-        onOperation(operation);
+      if (onOperationRef.current) {
+        onOperationRef.current(operation);
       }
       
       if (!isOffline && socketRef.current) {
@@ -133,29 +143,44 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
         setOperationQueue(prev => [...prev, operation]);
       }
     } else if (newText.length < oldText.length) {
-      // Deletion - simplified for demo, just rebuild document from new text
-      setDoc(createDocument());
-      for (let i = 0; i < newText.length; i++) {
-        const char = newText[i];
-        const afterPos = i > 0 ? [i] : [0];
-        const beforePos = [i + 1];
+      // Deletion - find which character was deleted and mark it as tombstone
+      const cursorPos = e.target.selectionStart;
+      const sortedDoc = [...doc].filter(c => !c.deleted).sort((a, b) => {
+        const posA = a.position;
+        const posB = b.position;
+        for (let i = 0; i < Math.max(posA.length, posB.length); i++) {
+          const valA = posA[i] ?? 0;
+          const valB = posB[i] ?? 0;
+          if (valA < valB) return -1;
+          if (valA > valB) return 1;
+        }
+        return 0;
+      });
+      
+      // The character at cursorPos was deleted
+      if (cursorPos < sortedDoc.length) {
+        const deletedChar = sortedDoc[cursorPos];
         const operation = {
-          type: 'insert',
-          afterPosition: afterPos,
-          beforePosition: beforePos,
-          char: char,
+          type: 'remove',
+          id: deletedChar.id,
           author: name
         };
+        
         setDoc(prevDoc => {
           const newDoc = [...prevDoc];
           applyOperation(newDoc, operation);
           return newDoc;
         });
-      }
-      
-      if (!isOffline && socketRef.current) {
-        // Send the entire text as a sync operation (simplified)
-        socketRef.current.emit('operation', { roomId, operation: { type: 'sync', text: newText, author: name } });
+        
+        if (onOperationRef.current) {
+          onOperationRef.current(operation);
+        }
+        
+        if (!isOffline && socketRef.current) {
+          socketRef.current.emit('operation', { roomId, operation });
+        } else {
+          setOperationQueue(prev => [...prev, operation]);
+        }
       }
     }
     
@@ -164,6 +189,16 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
     // Emit cursor position
     if (!isOffline && socketRef.current) {
       socketRef.current.emit('cursor-position', { roomId, position: e.target.selectionStart });
+    }
+  };
+
+  const handleCursorMove = (e) => {
+    const newPos = e.target.selectionStart;
+    if (newPos !== cursorPosition) {
+      setCursorPosition(newPos);
+      if (!isOffline && socketRef.current) {
+        socketRef.current.emit('cursor-position', { roomId, position: newPos });
+      }
     }
   };
 
@@ -203,6 +238,13 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
     return name === 'Anvi' ? 'bg-green-500' : 'bg-blue-500';
   };
 
+  const calculateCursorPosition = (charPosition) => {
+    // Approximate character width in monospace font (8px per character + padding)
+    const charWidth = 8;
+    const padding = 16;
+    return charPosition * charWidth + padding;
+  };
+
   return (
     <div className={`flex-1 flex flex-col bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden relative transition-all duration-300 ${
       mergeHighlight ? 'ring-2 ring-success-green ring-offset-2' : ''
@@ -235,13 +277,16 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
           ref={textareaRef}
           value={text}
           onChange={handleInputChange}
+          onSelect={handleCursorMove}
+          onClick={handleCursorMove}
+          onKeyUp={handleCursorMove}
           className="w-full h-full p-4 resize-none focus:outline-none font-mono text-text-primary bg-bg-surface"
           placeholder="Start typing..."
         />
         {remoteCursor !== undefined && remoteCursor !== null && (
           <div 
             className="absolute pointer-events-none flex flex-col items-center transition-all duration-200"
-            style={{ left: `${remoteCursor * 8 + 16}px`, top: '16px' }}
+            style={{ left: `${calculateCursorPosition(remoteCursor)}px`, top: '16px' }}
           >
             <div className={`px-2 py-1 rounded text-xs text-white font-medium mb-1 ${getRemoteCursorColor()}`}>
               {name === 'Anvi' ? 'Ekaksh' : 'Anvi'}

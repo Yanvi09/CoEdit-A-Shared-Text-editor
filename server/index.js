@@ -22,23 +22,28 @@ io.on('connection', (socket) => {
   socket.on('join-room', (roomId) => {
     socket.join(roomId);
     console.log(`Socket ${socket.id} joined room ${roomId}`);
+    console.log(`Room ${roomId} now has ${io.sockets.adapter.rooms.get(roomId)?.size || 0} clients`);
   });
 
   // Relay any operation to other clients in the room
   socket.on('operation', (data) => {
     const { roomId, operation } = data;
+    console.log(`Received operation from ${socket.id} in room ${roomId}:`, operation);
     socket.to(roomId).emit('operation', operation);
+    console.log(`Broadcasted operation to other clients in room ${roomId}`);
   });
 
   // Relay cursor position updates
   socket.on('cursor-position', (data) => {
     const { roomId, position } = data;
+    console.log(`Received cursor position from ${socket.id} in room ${roomId}:`, position);
     socket.to(roomId).emit('cursor-position', position);
   });
 
   // Relay user join/leave notifications
   socket.on('user-joined', (data) => {
     const { roomId, user } = data;
+    console.log(`User ${user} joined room ${roomId}`);
     socket.to(roomId).emit('user-joined', user);
   });
 
@@ -46,6 +51,7 @@ io.on('connection', (socket) => {
     const rooms = socket.rooms;
     rooms.forEach((roomId) => {
       if (roomId !== socket.id) {
+        console.log(`Socket ${socket.id} leaving room ${roomId}`);
         socket.to(roomId).emit('user-left', socket.id);
       }
     });
