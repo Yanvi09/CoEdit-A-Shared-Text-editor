@@ -97,11 +97,6 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     socketRef.current.on('connect', () => {
       console.log(`${userName} connected to room ${roomId}`);
       socketRef.current.emit('join-room', roomId);
-      
-      // In real session mode, emit user-joined so others know about this user
-      if (!isDemoMode) {
-        socketRef.current.emit('user-joined', { roomId, user: userName });
-      }
     });
 
     // Listen for operations from other clients
