@@ -12,8 +12,10 @@ function App() {
     'Anvi': null,
     'Ekaksh': null
   })
+  const [isSimulating, setIsSimulating] = useState(false)
   const anviRef = useRef(null)
   const ekakshRef = useRef(null)
+  const stopSimulationRef = useRef(false)
 
   // Check URL for room routing
   useEffect(() => {
@@ -25,6 +27,8 @@ function App() {
 
   const runSimultaneousEditTest = async () => {
     setTestResult(null)
+    setIsSimulating(true)
+    stopSimulationRef.current = false
     
     // Reset both documents
     if (anviRef.current && ekakshRef.current) {
@@ -42,15 +46,33 @@ function App() {
           const maxLength = Math.max(anviPhrase.length, ekakshPhrase.length)
           
           for (let i = 0; i < maxLength; i++) {
+            // Check if simulation should stop
+            if (stopSimulationRef.current) {
+              setIsSimulating(false)
+              return
+            }
+            
             // Insert Anvi's character if available
             if (i < anviPhrase.length) {
               await anviRef.current.simultaneousInsert(anviPhrase[i])
+            }
+            
+            // Check if simulation should stop
+            if (stopSimulationRef.current) {
+              setIsSimulating(false)
+              return
             }
             
             // Insert Ekaksh's character if available
             if (i < ekakshPhrase.length) {
               await ekakshRef.current.simultaneousInsert(ekakshPhrase[i])
             }
+          }
+          
+          // Check if simulation should stop before final verification
+          if (stopSimulationRef.current) {
+            setIsSimulating(false)
+            return
           }
           
           // Wait for operations to round-trip through server
@@ -65,10 +87,16 @@ function App() {
             } else {
               setTestResult({ success: false, message: 'texts diverged — CRDT bug detected' })
             }
+            setIsSimulating(false)
           }, 1000) // Increased delay to allow round-trip
         }
       }, 100)
     }
+  }
+
+  const stopSimulation = () => {
+    stopSimulationRef.current = true
+    setIsSimulating(false)
   }
 
   const logOperation = (operation) => {
@@ -134,10 +162,14 @@ function App() {
           </p>
           
           <button
-            onClick={runSimultaneousEditTest}
-            className="mb-6 px-6 py-3 bg-primary-blue hover:bg-primary-blue-hover text-white rounded-xl font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+            onClick={isSimulating ? stopSimulation : runSimultaneousEditTest}
+            className={`mb-6 px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-md hover:shadow-lg ${
+              isSimulating 
+                ? 'bg-error-red hover:bg-error-red-hover text-white' 
+                : 'bg-primary-blue hover:bg-primary-blue-hover text-white'
+            }`}
           >
-            Simulate Simultaneous Edit
+            {isSimulating ? 'Stop' : 'Simulate Simultaneous Edit'}
           </button>
           
           {testResult && (
