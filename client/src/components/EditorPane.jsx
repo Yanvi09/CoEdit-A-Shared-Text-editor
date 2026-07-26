@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 're
 import { io } from 'socket.io-client';
 import { createDocument, applyOperation, render } from '../crdt';
 
-const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor }, ref) => {
+const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, onOperation }, ref) => {
   const [doc, setDoc] = useState(createDocument());
   const [text, setText] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -54,6 +54,9 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor },
         applyOperation(newDoc, operation);
         return newDoc;
       });
+      if (onOperation) {
+        onOperation(operation);
+      }
     });
 
     // Listen for cursor position updates
@@ -68,7 +71,7 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor },
         socketRef.current.disconnect();
       }
     };
-  }, [name, roomId, onCursorPosition]);
+  }, [name, roomId, onCursorPosition, onOperation]);
 
   // Update rendered text when document changes
   useEffect(() => {
@@ -115,6 +118,10 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor },
         applyOperation(newDoc, operation);
         return newDoc;
       });
+      
+      if (onOperation) {
+        onOperation(operation);
+      }
       
       if (!isOffline && socketRef.current) {
         socketRef.current.emit('operation', { roomId, operation });

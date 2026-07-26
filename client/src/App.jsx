@@ -7,6 +7,7 @@ function App() {
   const [anviCursor, setAnviCursor] = useState(null)
   const [ekakshCursor, setEkakshCursor] = useState(null)
   const [testResult, setTestResult] = useState(null)
+  const [operationLog, setOperationLog] = useState([])
   const anviRef = useRef(null)
   const ekakshRef = useRef(null)
 
@@ -39,6 +40,17 @@ function App() {
         }
       }, 100)
     }
+  }
+
+  const logOperation = (operation) => {
+    const newLog = {
+      time: new Date().toLocaleTimeString(),
+      author: operation.author,
+      type: operation.type,
+      character: operation.char || '-',
+      position: operation.afterPosition ? operation.afterPosition.join('.') : '-'
+    }
+    setOperationLog(prev => [newLog, ...prev].slice(0, 50))
   }
 
   if (view === 'landing') {
@@ -114,6 +126,7 @@ function App() {
               roomId="demo-room" 
               onCursorPosition={setAnviCursor}
               remoteCursor={ekakshCursor}
+              onOperation={logOperation}
             />
             <EditorPane 
               ref={ekakshRef}
@@ -121,8 +134,41 @@ function App() {
               roomId="demo-room" 
               onCursorPosition={setEkakshCursor}
               remoteCursor={anviCursor}
+              onOperation={logOperation}
             />
           </div>
+          
+          {operationLog.length > 0 && (
+            <div className="mt-6 bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden">
+              <div className="p-4 border-b border-border-subtle bg-bg-white">
+                <h3 className="font-medium text-text-primary">Operation Log</h3>
+              </div>
+              <div className="p-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-text-muted">
+                      <th className="pb-2 font-medium">Time</th>
+                      <th className="pb-2 font-medium">Author</th>
+                      <th className="pb-2 font-medium">Type</th>
+                      <th className="pb-2 font-medium">Character</th>
+                      <th className="pb-2 font-medium">Position</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {operationLog.map((op, index) => (
+                      <tr key={index} className="border-t border-border-subtle">
+                        <td className="py-2 font-mono text-xs">{op.time}</td>
+                        <td className="py-2">{op.author}</td>
+                        <td className="py-2">{op.type}</td>
+                        <td className="py-2 font-mono">{op.character}</td>
+                        <td className="py-2 font-mono text-xs">{op.position}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
