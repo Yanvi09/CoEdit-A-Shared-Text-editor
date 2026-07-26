@@ -66,7 +66,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
       // Emit all operations
       if (!isOffline && socketRef.current) {
         operations.forEach(op => {
-          socketRef.current.emit('operation', { roomId, operation });
+          socketRef.current.emit('operation', { roomId, operation: op });
         });
       }
     },
