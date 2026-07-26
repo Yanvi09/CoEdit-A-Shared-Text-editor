@@ -35,8 +35,8 @@ function comparePositions(pos1, pos2) {
 }
 
 // Calculate a position strictly between two positions
-// Uses a recursive midpoint algorithm with tie-breaking by client ID
-function midpoint(afterPos, beforePos, clientId) {
+// Uses a recursive midpoint algorithm with tie-breaking by author
+function midpoint(afterPos, beforePos, author) {
   // Start with the minimum position
   const result = [];
   
@@ -59,15 +59,14 @@ function midpoint(afterPos, beforePos, clientId) {
     }
   }
   
-  // If we couldn't find a midpoint, append the client ID for tie-breaking
-  // Use a hash of the client ID to ensure consistent ordering
-  const clientHash = clientId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  result.push(clientHash % 100);
+  // If we couldn't find a midpoint, append the author hash for tie-breaking
+  const authorHash = author.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  result.push(authorHash % 100);
   return result;
 }
 
 // Insert a character at a position between afterPos and beforePos
-export function insert(doc, afterPos, beforePos, char, author, clientId) {
+export function insert(doc, afterPos, beforePos, char, author) {
   const position = midpoint(afterPos, beforePos, author);
   const id = generateId();
   const newChar = new Character(id, position, char, false, author);

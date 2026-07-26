@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import EditorPane from './components/EditorPane'
 import './App.css'
 
 function App() {
   const [view, setView] = useState('landing')
+  const [anviCursor, setAnviCursor] = useState(null)
+  const [ekakshCursor, setEkakshCursor] = useState(null)
 
   if (view === 'landing') {
     return (
@@ -34,15 +37,31 @@ function App() {
   if (view === 'demo') {
     return (
       <div className="min-h-screen bg-bg-white p-8">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <button
             onClick={() => setView('landing')}
             className="mb-6 text-text-muted hover:text-text-primary transition-colors"
           >
             ← Back
           </button>
-          <h1 className="text-4xl font-bold text-text-primary mb-8">Demo</h1>
-          <p className="text-text-muted">Demo page coming soon...</p>
+          <h1 className="text-4xl font-bold text-text-primary mb-8">Watch It Work</h1>
+          <p className="text-text-muted mb-8">
+            Type in either pane — changes will sync instantly. Both panes are connected to the same demo room.
+          </p>
+          <div className="grid grid-cols-2 gap-6 h-[600px]">
+            <EditorPane 
+              name="Anvi" 
+              roomId="demo-room" 
+              onCursorPosition={setAnviCursor}
+              remoteCursor={ekakshCursor}
+            />
+            <EditorPane 
+              name="Ekaksh" 
+              roomId="demo-room" 
+              onCursorPosition={setEkakshCursor}
+              remoteCursor={anviCursor}
+            />
+          </div>
         </div>
       </div>
     )
