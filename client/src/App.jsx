@@ -9,6 +9,7 @@ function App() {
   const [ekakshCursor, setEkakshCursor] = useState(null)
   const [testResult, setTestResult] = useState(null)
   const [operationLog, setOperationLog] = useState([])
+  const [showExplainer, setShowExplainer] = useState(false)
   const anviRef = useRef(null)
   const ekakshRef = useRef(null)
 
@@ -178,6 +179,29 @@ function App() {
               </div>
             </div>
           )}
+          
+          <div className="mt-6 bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden">
+            <button
+              onClick={() => setShowExplainer(!showExplainer)}
+              className="w-full p-4 text-left flex items-center justify-between hover:bg-bg-surface-hover transition-colors"
+            >
+              <span className="font-medium text-text-primary">How this works</span>
+              <span className="text-text-muted">{showExplainer ? '▼' : '▶'}</span>
+            </button>
+            {showExplainer && (
+              <div className="p-4 border-t border-border-subtle text-sm text-text-muted space-y-2">
+                <p>
+                  <strong>CRDTs (Conflict-free Replicated Data Types)</strong> use fractional positions to order characters, so simultaneous edits always converge to the same result without a central authority.
+                </p>
+                <p>
+                  <strong>Tombstones</strong> mark deleted characters instead of removing them, ensuring deletions sync correctly even when applied in different orders.
+                </p>
+                <p>
+                  <strong>Zero server logic</strong> — the server only relays operations between clients. All conflict resolution happens client-side using deterministic mathematical rules.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     )
