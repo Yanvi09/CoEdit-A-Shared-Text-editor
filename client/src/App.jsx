@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import EditorPane from './components/EditorPane'
+import RealSession from './components/RealSession'
 import './App.css'
 
 function App() {
@@ -10,6 +11,14 @@ function App() {
   const [operationLog, setOperationLog] = useState([])
   const anviRef = useRef(null)
   const ekakshRef = useRef(null)
+
+  // Check URL for room routing
+  useEffect(() => {
+    const pathParts = window.location.pathname.split('/');
+    if (pathParts[1] === 'room' && pathParts[2]) {
+      setView('real');
+    }
+  }, [])
 
   const runSimultaneousEditTest = () => {
     setTestResult(null)
@@ -175,20 +184,7 @@ function App() {
   }
 
   if (view === 'real') {
-    return (
-      <div className="min-h-screen bg-bg-white p-8">
-        <div className="max-w-6xl mx-auto">
-          <button
-            onClick={() => setView('landing')}
-            className="mb-6 text-text-muted hover:text-text-primary transition-colors"
-          >
-            ← Back
-          </button>
-          <h1 className="text-4xl font-bold text-text-primary mb-8">Real Session</h1>
-          <p className="text-text-muted">Real session page coming soon...</p>
-        </div>
-      </div>
-    )
+    return <RealSession />
   }
 }
 
