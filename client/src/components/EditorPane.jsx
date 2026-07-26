@@ -8,6 +8,7 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor },
   const [cursorPosition, setCursorPosition] = useState(0);
   const [isOffline, setIsOffline] = useState(false);
   const [operationQueue, setOperationQueue] = useState([]);
+  const [mergeHighlight, setMergeHighlight] = useState(false);
   const socketRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -156,13 +157,30 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor },
   };
 
   const toggleOffline = () => {
+    if (!isOffline && socketRef.current) {
+      // Disconnect socket when going offline
+      socketRef.current.disconnect();
+    }
     setIsOffline(!isOffline);
-    if (!isOffline && operationQueue.length > 0 && socketRef.current) {
+  };
+
+  const reconnect = () => {
+    setIsOffline(false);
+    if (socketRef.current) {
+      // Reconnect socket
+      socketRef.current.connect();
+      
       // Send queued operations when coming back online
-      operationQueue.forEach(op => {
-        socketRef.current.emit('operation', { roomId, operation: op });
-      });
-      setOperationQueue([]);
+      if (operationQueue.length > 0) {
+        operationQueue.forEach(op => {
+          socketRef.current.emit('operation', { roomId, operation: op });
+        });
+        setOperationQueue([]);
+        
+        // Show merge highlight
+        setMergeHighlight(true);
+        setTimeout(() => setMergeHighlight(false), 1000);
+      }
     }
   };
 
@@ -175,19 +193,31 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor },
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden relative">
+    <div className={`flex-1 flex flex-col bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden relative transition-all duration-300 ${
+      mergeHighlight ? 'ring-2 ring-success-green ring-offset-2' : ''
+    }`}>
       <div className="flex items-center justify-between p-4 border-b border-border-subtle bg-bg-white">
         <h3 className="font-medium text-text-primary">{name}</h3>
-        <button
-          onClick={toggleOffline}
-          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-            isOffline 
-              ? 'bg-warning-amber text-white' 
-              : 'bg-success-green text-white'
-          }`}
-        >
-          {isOffline ? 'Offline' : 'Online'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={toggleOffline}
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              isOffline 
+                ? 'bg-warning-amber text-white' 
+                : 'bg-success-green text-white'
+            }`}
+          >
+            {isOffline ? 'Offline' : 'Online'}
+          </button>
+          {isOffline && (
+            <button
+              onClick={reconnect}
+              className="px-3 py-1 rounded-lg text-sm font-medium bg-primary-blue hover:bg-primary-blue-hover text-white transition-colors"
+            >
+              Reconnect
+            </button>
+          )}
+        </div>
       </div>
       <div className="relative flex-1">
         <textarea
