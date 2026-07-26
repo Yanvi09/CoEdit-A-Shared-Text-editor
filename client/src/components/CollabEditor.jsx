@@ -5,17 +5,15 @@ import { createDocument, applyOperation, render, generateId } from '../crdt';
 const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor, isDemoMode = false }, ref) => {
   const [doc, setDoc] = useState(createDocument());
   const [text, setText] = useState('');
-  const [cursorPosition, setCursorPosition] = useState(0);
   const [isOffline, setIsOffline] = useState(false);
   const [operationQueue, setOperationQueue] = useState([]);
   const [mergeHighlight, setMergeHighlight] = useState(false);
   const [showInternals, setShowInternals] = useState(false);
-  const [hasReceivedRemoteCursor, setHasReceivedRemoteCursor] = useState(false);
-  const [cursorPositionPixels, setCursorPositionPixels] = useState({ x: 0, y: 0 });
-  const [otherUserCursor, setOtherUserCursor] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
   const socketRef = useRef(null);
   const textareaRef = useRef(null);
-  const mirrorRef = useRef(null);
   const onOperationRef = useRef(onOperation);
   const onRemoteCursorRef = useRef(onRemoteCursor);
 
@@ -25,15 +23,14 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     onRemoteCursorRef.current = onRemoteCursor;
   }, [onOperation, onRemoteCursor]);
 
-  // Handle remote cursor data from parent
+  // Handle typing indicator for other user
   useEffect(() => {
     if (onRemoteCursorRef.current) {
       const allCursors = onRemoteCursorRef.current;
       if (allCursors && typeof allCursors === 'object') {
-        // Find cursor for the OTHER user (not ourselves)
         const otherUserName = userName === 'Anvi' ? 'Ekaksh' : 'Anvi';
         const otherCursor = allCursors[otherUserName];
-        setOtherUserCursor(otherCursor);
+        setOtherUserTyping(otherCursor?.isTyping || false);
       }
     }
   }, [onRemoteCursor, userName]);
@@ -42,23 +39,35 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     resetDocument: () => {
       setDoc(createDocument());
     },
-    simultaneousInsert: (char) => {
-      const operation = {
-        type: 'insert',
-        id: generateId(),
-        afterPosition: [0],
-        beforePosition: [1],
-        char: char,
-        author: userName
-      };
-      setDoc(prevDoc => {
-        const newDoc = [...prevDoc];
-        applyOperation(newDoc, operation);
-        return newDoc;
-      });
-      // Emit to socket for actual sync during test
+    simultaneousInsert: (phrase) => {
+      // Generate operations for each character in the phrase
+      const operations = [];
+      let currentPos = [0];
+      
+      for (let i = 0; i < phrase.length; i++) {
+        const operation = {
+          type: 'insert',
+          id: generateId(),
+          afterPosition: currentPos,
+          beforePosition: [i + 1],
+          char: phrase[i],
+          author: userName
+        };
+        operations.push(operation);
+        currentPos = [i + 1];
+        
+        setDoc(prevDoc => {
+          const newDoc = [...prevDoc];
+          applyOperation(newDoc, operation);
+          return newDoc;
+        });
+      }
+      
+      // Emit all operations
       if (!isOffline && socketRef.current) {
-        socketRef.current.emit('operation', { roomId, operation });
+        operations.forEach(op => {
+          socketRef.current.emit('operation', { roomId, operation });
+        });
       }
     },
     getText: () => {
@@ -102,15 +111,18 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
       }
     });
 
-    // Listen for cursor position updates
-    socketRef.current.on('cursor-position', (data) => {
-      console.log(`${userName} received cursor position:`, data);
+    // Listen for typing indicator updates
+    socketRef.current.on('typing-indicator', (data) => {
+      console.log(`${userName} received typing indicator:`, data);
       if (onRemoteCursorRef.current) {
         onRemoteCursorRef.current(data);
       }
     });
 
     return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
@@ -123,9 +135,46 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     setText(renderedText);
   }, [doc]);
 
+  // Render text with author colors
+  const renderColoredText = () => {
+    const activeChars = doc.filter(c => !c.deleted);
+    activeChars.sort((a, b) => {
+      const posA = a.position;
+      const posB = b.position;
+      for (let i = 0; i < Math.max(posA.length, posB.length); i++) {
+        const valA = posA[i] ?? 0;
+        const valB = posB[i] ?? 0;
+        if (valA < valB) return -1;
+        if (valA > valB) return 1;
+      }
+      return 0;
+    });
+    
+    return activeChars.map((char) => {
+      const color = char.author === 'Anvi' ? '#4285F4' : '#F9A825';
+      return <span key={char.id} style={{ color }}>{char.char}</span>;
+    });
+  };
+
   const handleInputChange = (e) => {
     const newText = e.target.value;
     const oldText = text;
+    
+    // Emit typing indicator
+    setIsTyping(true);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      if (!isOffline && socketRef.current) {
+        socketRef.current.emit('typing-indicator', { roomId, author: userName, isTyping: false });
+      }
+    }, 1000);
+    
+    if (!isOffline && socketRef.current) {
+      socketRef.current.emit('typing-indicator', { roomId, author: userName, isTyping: true });
+    }
     
     // Simple diff to detect insertions/deletions
     if (newText.length > oldText.length) {
@@ -151,7 +200,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
       
       const operation = {
         type: 'insert',
-        id: generateId(), // Only generate ID for local operations
+        id: generateId(),
         afterPosition: afterPos,
         beforePosition: beforePos,
         char: insertedChar,
@@ -174,7 +223,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
         setOperationQueue(prev => [...prev, operation]);
       }
     } else if (newText.length < oldText.length) {
-      // Deletion - find which character was deleted and mark it as tombstone
+      // Deletion
       const cursorPos = e.target.selectionStart;
       const sortedDoc = [...doc].filter(c => !c.deleted).sort((a, b) => {
         const posA = a.position;
@@ -188,7 +237,6 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
         return 0;
       });
       
-      // The character at cursorPos was deleted
       if (cursorPos < sortedDoc.length) {
         const deletedChar = sortedDoc[cursorPos];
         const operation = {
@@ -219,28 +267,10 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
         }
       }
     }
-    
-    setCursorPosition(e.target.selectionStart);
-    
-    // Emit cursor position
-    if (!isOffline && socketRef.current) {
-      socketRef.current.emit('cursor-position', { roomId, position: e.target.selectionStart, userName });
-    }
-  };
-
-  const handleCursorMove = (e) => {
-    const newPos = e.target.selectionStart;
-    if (newPos !== cursorPosition) {
-      setCursorPosition(newPos);
-      if (!isOffline && socketRef.current) {
-        socketRef.current.emit('cursor-position', { roomId, position: newPos, userName });
-      }
-    }
   };
 
   const toggleOffline = () => {
     if (!isOffline && socketRef.current) {
-      // Disconnect socket when going offline
       socketRef.current.disconnect();
     }
     setIsOffline(!isOffline);
@@ -249,55 +279,23 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
   const reconnect = () => {
     setIsOffline(false);
     if (socketRef.current) {
-      // Reconnect socket
       socketRef.current.connect();
       
-      // Send queued operations when coming back online
       if (operationQueue.length > 0) {
         operationQueue.forEach(op => {
           socketRef.current.emit('operation', { roomId, operation: op });
         });
         setOperationQueue([]);
         
-        // Show merge highlight
         setMergeHighlight(true);
         setTimeout(() => setMergeHighlight(false), 1000);
       }
     }
   };
 
-  const getCursorColor = () => {
-    return userName === 'Anvi' ? 'bg-blue-500' : 'bg-green-500';
+  const getOtherUserName = () => {
+    return userName === 'Anvi' ? 'Ekaksh' : 'Anvi';
   };
-
-  const calculateCursorPosition = (charPosition) => {
-    if (!mirrorRef.current || charPosition === null || charPosition === undefined) {
-      return { x: 0, y: 0 };
-    }
-
-    // Use the mirror element to measure actual rendered position
-    const textUpToCursor = text.substring(0, charPosition);
-    mirrorRef.current.textContent = textUpToCursor;
-    
-    const rect = mirrorRef.current.getBoundingClientRect();
-    const textareaRect = textareaRef.current.getBoundingClientRect();
-    
-    return {
-      x: rect.width,
-      y: rect.height
-    };
-  };
-
-  // Update cursor position when remote cursor changes
-  useEffect(() => {
-    if (otherUserCursor && otherUserCursor.position !== null && otherUserCursor.position !== undefined) {
-      setHasReceivedRemoteCursor(true);
-      const newPos = calculateCursorPosition(otherUserCursor.position);
-      setCursorPositionPixels(newPos);
-    } else {
-      setHasReceivedRemoteCursor(false);
-    }
-  }, [otherUserCursor, text]);
 
   return (
     <div className={`flex-1 flex flex-col bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden relative transition-all duration-300 ${
@@ -331,35 +329,24 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
           ref={textareaRef}
           value={text}
           onChange={handleInputChange}
-          onSelect={handleCursorMove}
-          onClick={handleCursorMove}
-          onKeyUp={handleCursorMove}
           className="w-full h-full p-4 resize-none focus:outline-none font-mono text-text-primary bg-bg-surface"
           placeholder="Start typing..."
+          style={{ color: 'transparent', caretColor: 'text-primary', backgroundColor: 'transparent' }}
         />
-        {/* Hidden mirror element for cursor position calculation */}
-        <div
-          ref={mirrorRef}
-          className="absolute opacity-0 pointer-events-none font-mono text-text-primary p-4 whitespace-pre"
-          style={{ top: 0, left: 0 }}
-        />
-        {hasReceivedRemoteCursor && otherUserCursor && otherUserCursor.position !== null && otherUserCursor.position !== undefined && (
-          <div 
-            className="absolute pointer-events-none flex flex-col items-start transition-all duration-200"
-            style={{ 
-              left: `${cursorPositionPixels.x + 16}px`, 
-              top: `${cursorPositionPixels.y + 16}px`
-            }}
-          >
-            <div className={`px-2 py-1 rounded text-xs text-white font-medium mb-1 ${getCursorColor()}`}>
-              {otherUserCursor.userName}
-            </div>
-            <div className={`w-0.5 h-5 ${getCursorColor()}`} />
+        <div 
+          className="absolute top-4 left-4 w-full h-full pointer-events-none font-mono whitespace-pre-wrap overflow-hidden"
+          style={{ color: 'text-primary' }}
+        >
+          {renderColoredText()}
+        </div>
+        {otherUserTyping && (
+          <div className="absolute top-2 right-4 px-3 py-1 bg-primary-blue text-white text-xs rounded-full">
+            {getOtherUserName()} is typing...
           </div>
         )}
       </div>
       <div className="p-2 border-t border-border-subtle text-xs text-text-muted">
-        Cursor: {cursorPosition} | {isOffline ? `${operationQueue.length} queued ops` : 'Synced'}
+        {isOffline ? `${operationQueue.length} queued ops` : 'Synced'}
       </div>
       
       {showInternals && (

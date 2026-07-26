@@ -33,10 +33,10 @@ function App() {
       
       // Wait a moment for reset to complete, then run simulation
       setTimeout(() => {
-        // Trigger simultaneous inserts at position 0
+        // Trigger simultaneous inserts with real phrases
         if (anviRef.current && ekakshRef.current) {
-          anviRef.current.simultaneousInsert('A')
-          ekakshRef.current.simultaneousInsert('B')
+          anviRef.current.simultaneousInsert('Hi Ekaksh')
+          ekakshRef.current.simultaneousInsert('Hi Anvi')
           
           // Wait for operations to round-trip through server
           setTimeout(() => {
@@ -50,7 +50,7 @@ function App() {
             } else {
               setTestResult({ success: false, message: 'texts diverged — CRDT bug detected' })
             }
-          }, 800) // Increased delay to allow round-trip
+          }, 1000) // Increased delay to allow round-trip
         }
       }, 100)
     }

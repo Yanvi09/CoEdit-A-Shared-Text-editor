@@ -40,6 +40,20 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('cursor-position', { position, userName });
   });
 
+  // Relay typing indicator updates
+  socket.on('typing-indicator', (data) => {
+    const { roomId, author, isTyping } = data;
+    console.log(`Received typing indicator from ${socket.id} in room ${roomId}:`, { author, isTyping });
+    socket.to(roomId).emit('typing-indicator', { author, isTyping });
+  });
+
+  // Relay typing indicator updates
+  socket.on('typing-indicator', (data) => {
+    const { roomId, author, isTyping } = data;
+    console.log(`Received typing indicator from ${socket.id} in room ${roomId}:`, { author, isTyping });
+    socket.to(roomId).emit('typing-indicator', { author, isTyping });
+  });
+
   // Relay user join/leave notifications
   socket.on('user-joined', (data) => {
     const { roomId, user } = data;
