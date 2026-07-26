@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 're
 import { io } from 'socket.io-client';
 import { createDocument, applyOperation, render } from '../crdt';
 
-const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, onOperation }, ref) => {
+const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, remoteUserName, onOperation }, ref) => {
   const [doc, setDoc] = useState(createDocument());
   const [text, setText] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -173,6 +173,8 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
         const operation = {
           type: 'remove',
           id: deletedChar.id,
+          position: deletedChar.position,
+          removedChar: deletedChar.char,
           author: name
         };
         
@@ -271,12 +273,14 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
 
   // Update cursor position when remote cursor changes
   useEffect(() => {
-    if (remoteCursor !== null && remoteCursor !== undefined) {
+    if (remoteCursor !== null && remoteCursor !== undefined && remoteUserName !== name) {
       setHasReceivedRemoteCursor(true);
       const newPos = calculateCursorPosition(remoteCursor);
       setCursorPositionPixels(newPos);
+    } else {
+      setHasReceivedRemoteCursor(false);
     }
-  }, [remoteCursor, text]);
+  }, [remoteCursor, text, remoteUserName, name]);
 
   return (
     <div className={`flex-1 flex flex-col bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden relative transition-all duration-300 ${
@@ -331,7 +335,7 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
             }}
           >
             <div className={`px-2 py-1 rounded text-xs text-white font-medium mb-1 ${getRemoteCursorColor()}`}>
-              {name === 'Anvi' ? 'Ekaksh' : 'Anvi'}
+              {remoteUserName}
             </div>
             <div className={`w-0.5 h-5 ${getRemoteCursorColor()}`} />
           </div>

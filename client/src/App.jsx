@@ -13,6 +13,12 @@ function App() {
   const anviRef = useRef(null)
   const ekakshRef = useRef(null)
 
+  // Store cursor positions with user names
+  const [cursorPositions, setCursorPositions] = useState({
+    'Anvi': null,
+    'Ekaksh': null
+  })
+
   // Check URL for room routing
   useEffect(() => {
     const pathParts = window.location.pathname.split('/');
@@ -29,7 +35,7 @@ function App() {
       anviRef.current.resetDocument()
       ekakshRef.current.resetDocument()
       
-      // Wait a moment for reset to complete
+      // Wait a moment for reset to complete, then run simulation
       setTimeout(() => {
         // Trigger simultaneous inserts at position 0
         if (anviRef.current && ekakshRef.current) {
@@ -57,10 +63,17 @@ function App() {
       time: new Date().toLocaleTimeString(),
       author: operation.author,
       type: operation.type,
-      character: operation.char || '-',
-      position: operation.afterPosition ? operation.afterPosition.join('.') : '-'
+      character: operation.char || operation.removedChar || '-',
+      position: operation.afterPosition ? operation.afterPosition.join('.') : (operation.position ? operation.position.join('.') : '-')
     }
     setOperationLog(prev => [newLog, ...prev].slice(0, 50))
+  }
+
+  const handleCursorPosition = (userName, position) => {
+    setCursorPositions(prev => ({
+      ...prev,
+      [userName]: position
+    }))
   }
 
   if (view === 'landing') {
@@ -134,16 +147,18 @@ function App() {
               ref={anviRef}
               name="Anvi" 
               roomId="demo-room" 
-              onCursorPosition={setAnviCursor}
-              remoteCursor={ekakshCursor}
+              onCursorPosition={(pos) => handleCursorPosition('Anvi', pos)}
+              remoteCursor={cursorPositions['Ekaksh']}
+              remoteUserName="Ekaksh"
               onOperation={logOperation}
             />
             <EditorPane 
               ref={ekakshRef}
               name="Ekaksh" 
               roomId="demo-room" 
-              onCursorPosition={setEkakshCursor}
-              remoteCursor={anviCursor}
+              onCursorPosition={(pos) => handleCursorPosition('Ekaksh', pos)}
+              remoteCursor={cursorPositions['Anvi']}
+              remoteUserName="Anvi"
               onOperation={logOperation}
             />
           </div>
