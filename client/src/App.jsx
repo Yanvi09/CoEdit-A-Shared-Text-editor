@@ -1,23 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
-import EditorPane from './components/EditorPane'
+import CollabEditor from './components/CollabEditor'
 import RealSession from './components/RealSession'
 import './App.css'
 
 function App() {
   const [view, setView] = useState('landing')
-  const [anviCursor, setAnviCursor] = useState(null)
-  const [ekakshCursor, setEkakshCursor] = useState(null)
   const [testResult, setTestResult] = useState(null)
   const [operationLog, setOperationLog] = useState([])
   const [showExplainer, setShowExplainer] = useState(false)
-  const anviRef = useRef(null)
-  const ekakshRef = useRef(null)
-
-  // Store cursor positions with user names
-  const [cursorPositions, setCursorPositions] = useState({
+  const [remoteCursors, setRemoteCursors] = useState({
     'Anvi': null,
     'Ekaksh': null
   })
+  const anviRef = useRef(null)
+  const ekakshRef = useRef(null)
 
   // Check URL for room routing
   useEffect(() => {
@@ -69,11 +65,13 @@ function App() {
     setOperationLog(prev => [newLog, ...prev].slice(0, 50))
   }
 
-  const handleCursorPosition = (userName, position) => {
-    setCursorPositions(prev => ({
-      ...prev,
-      [userName]: position
-    }))
+  const handleRemoteCursor = (cursorData) => {
+    if (cursorData && cursorData.userName) {
+      setRemoteCursors(prev => ({
+        ...prev,
+        [cursorData.userName]: cursorData
+      }))
+    }
   }
 
   if (view === 'landing') {
@@ -143,23 +141,21 @@ function App() {
           )}
           
           <div className="grid grid-cols-2 gap-6 h-[600px]">
-            <EditorPane 
+            <CollabEditor 
               ref={anviRef}
-              name="Anvi" 
+              userName="Anvi" 
               roomId="demo-room" 
-              onCursorPosition={(pos) => handleCursorPosition('Anvi', pos)}
-              remoteCursor={cursorPositions['Ekaksh']}
-              remoteUserName="Ekaksh"
               onOperation={logOperation}
+              onRemoteCursor={handleRemoteCursor}
+              isDemoMode={true}
             />
-            <EditorPane 
+            <CollabEditor 
               ref={ekakshRef}
-              name="Ekaksh" 
+              userName="Ekaksh" 
               roomId="demo-room" 
-              onCursorPosition={(pos) => handleCursorPosition('Ekaksh', pos)}
-              remoteCursor={cursorPositions['Anvi']}
-              remoteUserName="Anvi"
               onOperation={logOperation}
+              onRemoteCursor={handleRemoteCursor}
+              isDemoMode={true}
             />
           </div>
           

@@ -35,9 +35,9 @@ io.on('connection', (socket) => {
 
   // Relay cursor position updates
   socket.on('cursor-position', (data) => {
-    const { roomId, position } = data;
-    console.log(`Received cursor position from ${socket.id} in room ${roomId}:`, position);
-    socket.to(roomId).emit('cursor-position', position);
+    const { roomId, position, userName } = data;
+    console.log(`Received cursor position from ${socket.id} in room ${roomId}:`, { position, userName });
+    socket.to(roomId).emit('cursor-position', { position, userName });
   });
 
   // Relay user join/leave notifications

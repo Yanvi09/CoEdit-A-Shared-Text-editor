@@ -86,7 +86,13 @@ export function remove(doc, id) {
 // Apply an operation to the document
 export function applyOperation(doc, op) {
   if (op.type === 'insert') {
-    return insert(doc, op.afterPosition, op.beforePosition, op.char, op.author);
+    // For remote operations, use the provided ID; for local operations, generate a new one
+    const id = op.id || generateId();
+    const position = midpoint(op.afterPosition, op.beforePosition, op.author);
+    const newChar = new Character(id, position, op.char, false, op.author);
+    doc.push(newChar);
+    console.log('[APPLY] storing remote entry with id:', id);
+    return newChar;
   } else if (op.type === 'remove') {
     return remove(doc, op.id);
   }

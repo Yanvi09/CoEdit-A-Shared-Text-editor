@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import EditorPane from './EditorPane';
+import CollabEditor from './CollabEditor';
 
 export default function RealSession() {
   const [view, setView] = useState('join'); // 'join', 'create', 'waiting', 'editing'
@@ -207,8 +207,8 @@ export default function RealSession() {
           </div>
           
           <div className="h-[600px]">
-            <EditorPane 
-              name={name}
+            <CollabEditor 
+              userName={name}
               roomId={roomId}
             />
           </div>
