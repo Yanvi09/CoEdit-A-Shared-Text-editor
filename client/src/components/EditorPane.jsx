@@ -140,6 +140,14 @@ export default function EditorPane({ name, roomId, onCursorPosition, remoteCurso
     }
   };
 
+  const getCursorColor = () => {
+    return name === 'Anvi' ? 'bg-blue-500' : 'bg-green-500';
+  };
+
+  const getRemoteCursorColor = () => {
+    return name === 'Anvi' ? 'bg-green-500' : 'bg-blue-500';
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden relative">
       <div className="flex items-center justify-between p-4 border-b border-border-subtle bg-bg-white">
@@ -165,9 +173,14 @@ export default function EditorPane({ name, roomId, onCursorPosition, remoteCurso
         />
         {remoteCursor !== undefined && remoteCursor !== null && (
           <div 
-            className="absolute pointer-events-none w-0.5 h-5 bg-blue-500 top-4 transition-all duration-200"
-            style={{ left: `${remoteCursor * 8 + 16}px` }}
-          />
+            className="absolute pointer-events-none flex flex-col items-center transition-all duration-200"
+            style={{ left: `${remoteCursor * 8 + 16}px`, top: '16px' }}
+          >
+            <div className={`px-2 py-1 rounded text-xs text-white font-medium mb-1 ${getRemoteCursorColor()}`}>
+              {name === 'Anvi' ? 'Ekaksh' : 'Anvi'}
+            </div>
+            <div className={`w-0.5 h-5 ${getRemoteCursorColor()}`} />
+          </div>
         )}
       </div>
       <div className="p-2 border-t border-border-subtle text-xs text-text-muted">
