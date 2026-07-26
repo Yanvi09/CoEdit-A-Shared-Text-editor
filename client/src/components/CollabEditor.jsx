@@ -12,6 +12,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
   const [isTyping, setIsTyping] = useState(false);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
+  const simulationTimerRef = useRef(null);
   const socketRef = useRef(null);
   const textareaRef = useRef(null);
   const onOperationRef = useRef(onOperation);
@@ -39,36 +40,46 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     resetDocument: () => {
       setDoc(createDocument());
     },
-    simultaneousInsert: (phrase) => {
-      // Generate operations for each character in the phrase
-      const operations = [];
-      let currentPos = [0];
+    simultaneousInsert: async (char) => {
+      // Insert a single character with the current document state
+      const sortedDoc = [...doc].filter(c => !c.deleted).sort((a, b) => {
+        const posA = a.position;
+        const posB = b.position;
+        for (let i = 0; i < Math.max(posA.length, posB.length); i++) {
+          const valA = posA[i] ?? 0;
+          const valB = posB[i] ?? 0;
+          if (valA < valB) return -1;
+          if (valA > valB) return 1;
+        }
+        return 0;
+      });
       
-      for (let i = 0; i < phrase.length; i++) {
-        const operation = {
-          type: 'insert',
-          id: generateId(),
-          afterPosition: currentPos,
-          beforePosition: [i + 1],
-          char: phrase[i],
-          author: userName
-        };
-        operations.push(operation);
-        currentPos = [i + 1];
-        
-        setDoc(prevDoc => {
-          const newDoc = [...prevDoc];
-          applyOperation(newDoc, operation);
-          return newDoc;
-        });
-      }
+      const cursorPos = sortedDoc.length;
+      const afterPos = cursorPos > 0 ? sortedDoc[cursorPos - 1]?.position ?? [0] : [0];
+      const beforePos = cursorPos < sortedDoc.length ? sortedDoc[cursorPos]?.position ?? [1] : [1];
       
-      // Emit all operations
+      const operation = {
+        type: 'insert',
+        id: generateId(),
+        afterPosition: afterPos,
+        beforePosition: beforePos,
+        char: char,
+        author: userName
+      };
+      
+      setDoc(prevDoc => {
+        const newDoc = [...prevDoc];
+        applyOperation(newDoc, operation);
+        return newDoc;
+      });
+      
+      // Emit operation
       if (!isOffline && socketRef.current) {
-        operations.forEach(op => {
-          socketRef.current.emit('operation', { roomId, operation: op });
-        });
+        socketRef.current.emit('operation', { roomId, operation });
       }
+      
+      // Add delay for visible animation
+      await new Promise(resolve => setTimeout(resolve, 150));
     },
     getText: () => {
       return text;
@@ -126,6 +137,9 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
+      }
+      if (simulationTimerRef.current) {
+        clearTimeout(simulationTimerRef.current);
       }
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -334,9 +348,6 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
             </button>
           )}
         </div>
-      </div>
-      <div style={{background: 'red', color: 'white', padding: 8, fontSize: 12}}>
-        DEBUG typing state: otherUserTyping={String(otherUserTyping)}, onRemoteCursor={JSON.stringify(onRemoteCursor)}
       </div>
       <div className="relative flex-1">
         <textarea

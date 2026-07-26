@@ -23,7 +23,7 @@ function App() {
     }
   }, [])
 
-  const runSimultaneousEditTest = () => {
+  const runSimultaneousEditTest = async () => {
     setTestResult(null)
     
     // Reset both documents
@@ -32,11 +32,26 @@ function App() {
       ekakshRef.current.resetDocument()
       
       // Wait a moment for reset to complete, then run simulation
-      setTimeout(() => {
-        // Trigger simultaneous inserts with real phrases
+      setTimeout(async () => {
+        // Trigger simultaneous inserts with longer realistic phrases
         if (anviRef.current && ekakshRef.current) {
-          anviRef.current.simultaneousInsert('Hi Ekaksh')
-          ekakshRef.current.simultaneousInsert('Hi Anvi')
+          const anviPhrase = 'Hi Ekaksh, do you have your first job?'
+          const ekakshPhrase = 'Hey Anvi, do you want to join my company?'
+          
+          // Interleave characters from both phrases for realistic collision simulation
+          const maxLength = Math.max(anviPhrase.length, ekakshPhrase.length)
+          
+          for (let i = 0; i < maxLength; i++) {
+            // Insert Anvi's character if available
+            if (i < anviPhrase.length) {
+              await anviRef.current.simultaneousInsert(anviPhrase[i])
+            }
+            
+            // Insert Ekaksh's character if available
+            if (i < ekakshPhrase.length) {
+              await ekakshRef.current.simultaneousInsert(ekakshPhrase[i])
+            }
+          }
           
           // Wait for operations to round-trip through server
           setTimeout(() => {
