@@ -28,7 +28,7 @@ io.on('connection', (socket) => {
   // Relay any operation to other clients in the room
   socket.on('operation', (data) => {
     const { roomId, operation } = data;
-    console.log(`Received operation from ${socket.id} in room ${roomId}:`, operation);
+    console.log(`[SERVER] received operation:`, operation, 'from socket:', socket.id, 'broadcasting to room:', roomId);
     socket.to(roomId).emit('operation', operation);
     console.log(`Broadcasted operation to other clients in room ${roomId}`);
   });

@@ -10,8 +10,11 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
   const [operationQueue, setOperationQueue] = useState([]);
   const [mergeHighlight, setMergeHighlight] = useState(false);
   const [showInternals, setShowInternals] = useState(false);
+  const [hasReceivedRemoteCursor, setHasReceivedRemoteCursor] = useState(false);
+  const [cursorPositionPixels, setCursorPositionPixels] = useState({ x: 0, y: 0 });
   const socketRef = useRef(null);
   const textareaRef = useRef(null);
+  const mirrorRef = useRef(null);
   const onCursorPositionRef = useRef(onCursorPosition);
   const onOperationRef = useRef(onOperation);
 
@@ -62,8 +65,15 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
     // Listen for operations from other clients
     socketRef.current.on('operation', (operation) => {
       console.log(`${name} received operation:`, operation);
+      if (operation.type === 'remove') {
+        console.log('[DELETE] received operation:', operation);
+      }
       setDoc(prevDoc => {
         const newDoc = [...prevDoc];
+        if (operation.type === 'remove') {
+          const foundEntry = newDoc.find(c => c.id === operation.id);
+          console.log('[DELETE] applying to doc, found matching entry:', foundEntry);
+        }
         applyOperation(newDoc, operation);
         return newDoc;
       });
@@ -166,6 +176,8 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
           author: name
         };
         
+        console.log('[DELETE] generated operation:', operation);
+        
         setDoc(prevDoc => {
           const newDoc = [...prevDoc];
           applyOperation(newDoc, operation);
@@ -177,6 +189,7 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
         }
         
         if (!isOffline && socketRef.current) {
+          console.log('[DELETE] emitting to server:', operation);
           socketRef.current.emit('operation', { roomId, operation });
         } else {
           setOperationQueue(prev => [...prev, operation]);
@@ -239,11 +252,31 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
   };
 
   const calculateCursorPosition = (charPosition) => {
-    // Approximate character width in monospace font (8px per character + padding)
-    const charWidth = 8;
-    const padding = 16;
-    return charPosition * charWidth + padding;
+    if (!mirrorRef.current || charPosition === null || charPosition === undefined) {
+      return { x: 0, y: 0 };
+    }
+
+    // Use the mirror element to measure actual rendered position
+    const textUpToCursor = text.substring(0, charPosition);
+    mirrorRef.current.textContent = textUpToCursor;
+    
+    const rect = mirrorRef.current.getBoundingClientRect();
+    const textareaRect = textareaRef.current.getBoundingClientRect();
+    
+    return {
+      x: rect.width,
+      y: rect.height
+    };
   };
+
+  // Update cursor position when remote cursor changes
+  useEffect(() => {
+    if (remoteCursor !== null && remoteCursor !== undefined) {
+      setHasReceivedRemoteCursor(true);
+      const newPos = calculateCursorPosition(remoteCursor);
+      setCursorPositionPixels(newPos);
+    }
+  }, [remoteCursor, text]);
 
   return (
     <div className={`flex-1 flex flex-col bg-bg-surface rounded-2xl shadow-sm border border-border-subtle overflow-hidden relative transition-all duration-300 ${
@@ -283,10 +316,19 @@ const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor, o
           className="w-full h-full p-4 resize-none focus:outline-none font-mono text-text-primary bg-bg-surface"
           placeholder="Start typing..."
         />
-        {remoteCursor !== undefined && remoteCursor !== null && (
+        {/* Hidden mirror element for cursor position calculation */}
+        <div
+          ref={mirrorRef}
+          className="absolute opacity-0 pointer-events-none font-mono text-text-primary p-4 whitespace-pre"
+          style={{ top: 0, left: 0 }}
+        />
+        {hasReceivedRemoteCursor && remoteCursor !== null && remoteCursor !== undefined && (
           <div 
-            className="absolute pointer-events-none flex flex-col items-center transition-all duration-200"
-            style={{ left: `${calculateCursorPosition(remoteCursor)}px`, top: '16px' }}
+            className="absolute pointer-events-none flex flex-col items-start transition-all duration-200"
+            style={{ 
+              left: `${cursorPositionPixels.x + 16}px`, 
+              top: `${cursorPositionPixels.y + 16}px`
+            }}
           >
             <div className={`px-2 py-1 rounded text-xs text-white font-medium mb-1 ${getRemoteCursorColor()}`}>
               {name === 'Anvi' ? 'Ekaksh' : 'Anvi'}
