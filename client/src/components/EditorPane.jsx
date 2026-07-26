@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { io } from 'socket.io-client';
 import { createDocument, applyOperation, render } from '../crdt';
 
-export default function EditorPane({ name, roomId, onCursorPosition, remoteCursor }) {
+const EditorPane = forwardRef(({ name, roomId, onCursorPosition, remoteCursor }, ref) => {
   const [doc, setDoc] = useState(createDocument());
   const [text, setText] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -10,6 +10,32 @@ export default function EditorPane({ name, roomId, onCursorPosition, remoteCurso
   const [operationQueue, setOperationQueue] = useState([]);
   const socketRef = useRef(null);
   const textareaRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    resetDocument: () => {
+      setDoc(createDocument());
+    },
+    simultaneousInsert: (char) => {
+      const operation = {
+        type: 'insert',
+        afterPosition: [0],
+        beforePosition: [1],
+        char: char,
+        author: name
+      };
+      setDoc(prevDoc => {
+        const newDoc = [...prevDoc];
+        applyOperation(newDoc, operation);
+        return newDoc;
+      });
+      if (!isOffline && socketRef.current) {
+        socketRef.current.emit('operation', { roomId, operation });
+      }
+    },
+    getText: () => {
+      return text;
+    }
+  }));
 
   useEffect(() => {
     // Connect to Socket.IO server
@@ -188,4 +214,8 @@ export default function EditorPane({ name, roomId, onCursorPosition, remoteCurso
       </div>
     </div>
   );
-}
+});
+
+EditorPane.displayName = 'EditorPane';
+
+export default EditorPane;
