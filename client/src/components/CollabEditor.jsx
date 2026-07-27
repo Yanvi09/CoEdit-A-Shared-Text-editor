@@ -92,7 +92,7 @@ const CollabEditor = forwardRef(({ userName, roomId, onOperation, onRemoteCursor
 
   useEffect(() => {
     // Connect to Socket.IO server
-    socketRef.current = io('http://localhost:3001');
+    socketRef.current = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001');
 
     socketRef.current.on('connect', () => {
       console.log(`${userName} connected to room ${roomId}`);
